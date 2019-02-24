@@ -6,6 +6,7 @@ import RPi.GPIO as GPIO
 import signal
 import time
 import json
+import collections as cl
 GPIO.setwarnings(False)
 messages = SSEClient('http://192.168.43.120:3000/events/sensor')
 
@@ -27,6 +28,8 @@ class StateMachine:
         self.isTraing = True
         self.b_arr = []
         self.a_arr = []
+        self.blink_queue = cl.deque(maxlen=5)
+        self.attention_queue = cl.deque(maxlen=5)
         print('StateMachine Initialized')
         '''
         {"type":"blink","payload":181}
@@ -43,20 +46,32 @@ class StateMachine:
         return [sum(self.b_arr)/len(self.b_arr), sum(self.a_arr)/len(self.a_arr)]
 
 
+    def find_median(self):
+        first = self.b_arr[len(self.b_arr)/2]
+        second = self.a_arr[len(self.a_arr)/2]
+        return [first, second]
+
+
     def perform_action( self, source):
         if source['type'] == 'blink':
             self.blink = int(source['payload'])
+            self.blink_queue = self.blink_queue.append(self.blink)
+            self.blink_queue.sort()
         if source['type'] == 'sense':
             self.attention = int(source['payload']['attention'])
+            self.attention_queue = self.attention_queue.append(self.attention)
+            self.attention_queue.sort()
+        self.blink = self.blink_queue[len(self.blink_queue)-1]
+        self.attention = self.attention_queue[len(self.attention_queue)-1]
         if (self.isTraing):
-            print()
-            if (time.time() - self.start_time < 1000):
+            print(time.time() - self.start_time)
+            if (time.time() - self.start_time < 60):
                 self.a_arr.append(self.attention)
                 self.b_arr.append(self.blink)
                 self.isTraing = True
             else:
                 self.isTraing = False
-                arr = self.find_average()
+                arr = self.find_median()
                 self.ATTEN_THRESH = arr[1]
                 self.BLINK_THRESH = arr[0]
                 print("Thresold value of blink:\t", self.BLINK_THRESH)
