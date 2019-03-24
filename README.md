@@ -1,1 +1,2 @@
-# Mind Controlled Car with the help of Neurosky Mindwave Mobile 2 
+# Mind Controlled Car (with the help of Neurosky Mindwave Mobile 2)
+
